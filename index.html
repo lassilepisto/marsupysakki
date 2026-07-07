@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Marsupysäkki 🐹🚌</title>
+<style>
+  :root{
+    --bg:#FFF4E3;
+    --card:#FFFDF7;
+    --ink:#5B4636;
+    --ink-soft:#8A7361;
+    --accent:#E88CA0;
+    --bc:#ccc;   /* current bus color */
+    --bcl:#eee;  /* light */
+    --bcd:#999;  /* dark */
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    position:fixed;inset:0;overflow:hidden;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,"Segoe UI",system-ui,sans-serif;
+    user-select:none;-webkit-user-select:none;
+    -webkit-touch-callout:none;
+    touch-action:manipulation;
+    overscroll-behavior:none;
+  }
+  button{
+    font-family:inherit;color:inherit;
+    touch-action:manipulation;user-select:none;-webkit-user-select:none;
+    border:none;cursor:pointer;
+  }
+  #app{
+    height:100dvh;max-width:480px;margin:0 auto;
+    display:flex;flex-direction:column;gap:6px;
+    padding:8px 12px calc(10px + env(safe-area-inset-bottom));
+  }
+  header{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  header h1{font-size:17px;margin:0;letter-spacing:.2px;white-space:nowrap;}
+  .chip{
+    background:var(--card);border:2px solid #EAD9C3;border-radius:999px;
+    padding:5px 10px;font-weight:700;font-size:14px;white-space:nowrap;
+    transition:background .3s,border-color .3s,color .3s;
+  }
+  .chip.low{background:#F9DEE3;border-color:#E88CA0;color:#B4485E;}
+  .card{
+    background:var(--card);border:2px solid #EAD9C3;border-radius:18px;
+    padding:8px 10px;
+  }
+  .sectionLabel{font-size:13px;font-weight:700;color:var(--ink-soft);margin:0 0 4px 2px;}
+
+  /* ================= 3D SCENE ================= */
+  .scene{
+    position:relative;height:196px;border-radius:18px;overflow:hidden;
+    border:2px solid #EAD9C3;padding:0;
+    background:linear-gradient(180deg,#AEDCF2 0%,#D6EEF9 46%,#B9DCA8 46%,#A9CD97 60%,#8B8174 60%,#7E7468 100%);
+  }
+  .sun{
+    position:absolute;top:12px;right:18px;width:32px;height:32px;border-radius:50%;
+    background:radial-gradient(circle at 40% 40%,#FFF3C0,#FFD766 70%);
+    box-shadow:0 0 24px 8px rgba(255,215,102,.55);
+    animation:sunGlow 4s ease-in-out infinite alternate;
+  }
+  @keyframes sunGlow{to{box-shadow:0 0 34px 12px rgba(255,215,102,.75);}}
+  .cloud{
+    position:absolute;height:16px;border-radius:999px;background:rgba(255,255,255,.92);
+    box-shadow:12px -8px 0 -2px rgba(255,255,255,.92), 26px -4px 0 -1px rgba(255,255,255,.92);
+  }
+  .cloud.c1{top:24px;left:-70px;width:52px;animation:drift 38s linear infinite;}
+  .cloud.c2{top:48px;left:-120px;width:40px;animation:drift 55s linear infinite;animation-delay:-20s;}
+  @keyframes drift{to{transform:translateX(560px);}}
+  .hill{position:absolute;border-radius:50% 50% 0 0;background:#9CC489;}
+  .hill.h1{left:-40px;top:52px;width:200px;height:52px;}
+  .hill.h2{right:-60px;top:60px;width:260px;height:46px;background:#A9CD97;}
+  .roadLine{
+    position:absolute;left:0;right:0;bottom:32px;height:4px;
+    background:repeating-linear-gradient(90deg,#FFF8E2 0 22px,transparent 22px 46px);
+    opacity:.85;
+  }
+  .kerb{position:absolute;left:0;right:0;bottom:78px;height:5px;background:#CDC2B2;}
+  .bunting{
+    position:absolute;top:2px;left:6px;right:6px;height:40px;z-index:3;
+    transform-origin:50% -30px;
+    animation:sway 5.5s ease-in-out infinite alternate;
+  }
+  @keyframes sway{from{transform:rotate(-.8deg);}to{transform:rotate(.8deg);}}
+  .sceneFlower{position:absolute;font-size:12px;z-index:2;filter:drop-shadow(0 1px 1px rgba(60,40,20,.2));}
+  .stopPost{position:absolute;left:8px;bottom:74px;font-size:22px;z-index:6;
+    filter:drop-shadow(0 2px 1px rgba(60,40,20,.25));}
+
+  .persp{position:absolute;inset:0;perspective:800px;perspective-origin:50% 16%;z-index:4;}
+  .busDrive{
+    position:absolute;left:50%;bottom:32px;width:232px;margin-left:-116px;
+    transform:translateX(var(--dx,0px));
+  }
+  .busShadow{
+    position:absolute;left:6px;right:-8px;bottom:-13px;height:16px;border-radius:50%;
+    background:radial-gradient(ellipse at center,rgba(50,35,20,.32),rgba(50,35,20,0) 70%);
+  }
+  .busBounce{transform-style:preserve-3d;}
+  .busDrive.rolling .busBounce{animation:busBounce .16s ease-in-out infinite alternate;}
+  @keyframes busBounce{from{transform:translateY(0);}to{transform:translateY(-2.5px);}}
+  .bus3d{
+    position:relative;width:232px;height:90px;
+    transform-style:preserve-3d;
+    transform:rotateY(-22deg);
+  }
+  .face{position:absolute;}
+  .faceSide{
+    inset:0;border-radius:12px 14px 8px 8px;
+    background:linear-gradient(180deg,var(--bcl) 0%,var(--bc) 48%,var(--bcd) 100%);
+    transform:translateZ(27px);
+    box-shadow:inset 0 -7px 0 rgba(0,0,0,.10), inset 0 3px 0 rgba(255,255,255,.35);
+  }
+  .faceFront{
+    left:100%;top:0;width:54px;height:90px;
+    transform-origin:left center;
+    transform:translateZ(27px) rotateY(90deg);
+    border-radius:0 12px 8px 0;
+    background:linear-gradient(180deg,var(--bc) 0%,var(--bcd) 90%);
+    box-shadow:inset 0 -7px 0 rgba(0,0,0,.16);
+  }
+  .windshield{
+    position:absolute;left:6px;right:6px;top:9px;height:32px;border-radius:6px;
+    background:linear-gradient(160deg,#EAF6FF 0%,#9FC4DC 100%);
+    border:2px solid rgba(0,0,0,.14);
+  }
+  /* the bus has a face — eyes in the windshield, smile on the nose */
+  .busEye{
+    position:absolute;top:7px;width:13px;height:18px;border-radius:50%;
+    background:#fff;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.15);
+    animation:blink 4.6s infinite;
+  }
+  .busEye::after{
+    content:'';position:absolute;left:3px;top:5.5px;width:7px;height:8px;
+    border-radius:50%;background:#3A2E28;
+  }
+  .busEye::before{
+    content:'';position:absolute;left:7.5px;top:6.5px;width:2.5px;height:2.5px;
+    border-radius:50%;background:#fff;z-index:1;
+  }
+  .busEye.e1{left:5px;} .busEye.e2{right:5px;animation-delay:.1s;}
+  @keyframes blink{0%,91%,100%{transform:scaleY(1);}94%{transform:scaleY(.12);}}
+  .busSmile{
+    position:absolute;left:12px;top:48px;width:28px;height:11px;
+    border:3px solid rgba(58,46,40,.55);border-top:0;border-radius:0 0 14px 14px;
+  }
+  .headlight{
+    position:absolute;right:6px;bottom:14px;width:10px;height:10px;border-radius:50%;
+    background:radial-gradient(circle at 40% 40%,#FFFBE0,#F5D558);
+    box-shadow:0 0 6px 2px rgba(255,240,160,.8);
+  }
+  .faceTop{
+    left:0;top:0;width:232px;height:54px;
+    transform-origin:top center;
+    transform:translateZ(-27px) rotateX(90deg);
+    border-radius:12px 14px 4px 4px;
+    background:linear-gradient(90deg,var(--bc),var(--bcl) 55%,var(--bc));
+    box-shadow:inset 0 0 0 3px rgba(255,255,255,.25);
+  }
+  .busSign{
+    position:absolute;top:-2px;left:50%;transform:translate(-50%,-46%);
+    background:#fff;border:2px solid rgba(0,0,0,.12);border-radius:8px;
+    padding:1px 10px;font-size:14px;font-weight:800;line-height:18px;color:var(--bcd);
+    z-index:2;
+  }
+  .seats{display:flex;gap:8px;justify-content:flex-start;padding:24px 0 0 14px;}
+  .seat{
+    width:44px;height:44px;border-radius:50%;
+    background:radial-gradient(circle at 38% 32%,#FFFFFF,#E9E2D2 78%);
+    box-shadow:inset 0 0 0 3px rgba(0,0,0,.14), inset 0 -4px 6px rgba(0,0,0,.08);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+  }
+  .seat svg{width:36px;height:31px;}
+  .seat.ghost svg{visibility:hidden;}
+  .busDoor{
+    position:absolute;right:8px;bottom:6px;width:34px;height:56px;border-radius:6px 6px 3px 3px;
+    background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.30));
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.25);
+  }
+  .busDoor::before{
+    content:'';position:absolute;left:4px;right:4px;top:5px;height:20px;border-radius:4px;
+    background:linear-gradient(160deg,#EAF6FF,#9FC4DC);
+  }
+  .wheel{
+    position:absolute;bottom:-12px;width:26px;height:26px;border-radius:50%;
+    background:radial-gradient(circle at 50% 50%,#8B7F72 0 26%,#3E332C 27% 100%);
+    box-shadow:inset 0 0 0 2px #241D18;
+  }
+  .wheel::after{
+    content:'';position:absolute;left:50%;top:3.5px;width:4.5px;height:4.5px;margin-left:-2.25px;
+    border-radius:50%;background:#C8BBA9;
+  }
+  .wheel.wA{left:26px;} .wheel.wB{right:34px;}
+  .busDrive.rolling .wheel{animation:spin .4s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* preview + send row */
+  .nextRow{display:flex;align-items:center;gap:8px;}
+  .nextRow .sectionLabel{margin:0;}
+  .prevRow{display:flex;gap:6px;flex:1;}
+  .mini{
+    position:relative;width:50px;height:34px;border-radius:8px 10px 6px 6px;
+    background:linear-gradient(180deg,var(--bcl),var(--bc) 55%,var(--bcd));
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+  .mini::before,.mini::after{
+    content:'';position:absolute;bottom:-4px;width:9px;height:9px;border-radius:50%;background:#3E332C;
+  }
+  .mini::before{left:7px;} .mini::after{right:7px;}
+  .mini.empty{background:#EFE6D8;color:#C7B9A6;}
+  .mini.empty::before,.mini.empty::after{display:none;}
+  #sendBtn{
+    min-height:48px;min-width:128px;border-radius:14px;
+    background:var(--accent);color:#fff;font-weight:800;font-size:14px;
+    box-shadow:0 3px 0 #C96F84;
+  }
+  #sendBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #C96F84;}
+  #sendBtn.pulse{animation:pulse 1s ease-in-out infinite;}
+  @keyframes pulse{50%{transform:scale(1.06);}}
+
+  /* ---- bench ---- */
+  .benchCard{padding-bottom:12px;}
+  .benchSlots{display:flex;gap:10px;justify-content:center;padding:2px 0 0;position:relative;z-index:1;}
+  .benchSlot{
+    width:58px;height:54px;border-radius:14px;
+    background:transparent;border:2px dashed #DCC9AC;
+    display:flex;align-items:flex-end;justify-content:center;padding:0 0 2px;
+  }
+  .benchSlot.filled{border-color:transparent;}
+  .benchSlot svg{width:50px;height:42px;}
+  .benchSlot.filled svg{animation:benchBob 2.8s ease-in-out infinite;}
+  .benchSlot:nth-child(2) svg{animation-delay:.7s;}
+  .benchSlot:nth-child(3) svg{animation-delay:1.4s;}
+  .benchSlot:nth-child(4) svg{animation-delay:2.1s;}
+  @keyframes benchBob{50%{transform:translateY(-2.5px);}}
+  .benchSlot.ghost svg{visibility:hidden;}
+  .benchWood{
+    position:relative;margin:-6px 14px 0;height:12px;border-radius:6px;
+    background:linear-gradient(180deg,#D2A671,#AD8050);
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.35), inset 0 -3px 0 rgba(0,0,0,.15);
+  }
+  .benchWood::before,.benchWood::after{
+    content:'';position:absolute;top:100%;width:9px;height:10px;border-radius:0 0 3px 3px;
+    background:linear-gradient(180deg,#A87C4F,#8F6840);
+  }
+  .benchWood::before{left:22px;} .benchWood::after{right:22px;}
+
+  /* ---- pen (the meadow with 6 lanes) ---- */
+  .pen{
+    flex:1;min-height:0;display:flex;flex-direction:column;
+    position:relative;
+    background:
+      radial-gradient(circle at 12% 30%, rgba(255,255,255,.35) 1.5px, transparent 2.5px),
+      radial-gradient(circle at 70% 60%, rgba(255,255,255,.3) 1.5px, transparent 2.5px),
+      radial-gradient(circle at 40% 85%, rgba(160,200,130,.5) 1.5px, transparent 2.5px),
+      linear-gradient(180deg,#EDF7E3,#DCEECB);
+    background-size:34px 30px, 46px 38px, 40px 34px, 100% 100%;
+    border:3px solid #C9A26B;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.35);
+  }
+  .meadowDeco{position:absolute;inset:0;pointer-events:none;z-index:0;}
+  .meadowDeco span{position:absolute;font-size:14px;opacity:.9;}
+  .penHead,#penGrid{position:relative;z-index:1;}
+  .penHead{display:flex;align-items:center;justify-content:space-between;}
+  .gateHint{font-size:12px;color:var(--ink-soft);font-weight:700;}
+  #penGrid{
+    flex:1;min-height:0;
+    display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(7,1fr);
+    gap:1px 2px;padding-top:2px;
+  }
+  .penPig{
+    background:none;padding:0;min-height:42px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:12px;position:relative;
+  }
+  .penPig svg{width:100%;max-width:56px;height:auto;display:block;}
+  .penPig:not(.top){opacity:.85;}
+  .penPig.top{
+    background:rgba(255,255,255,.6);
+    box-shadow:0 2px 5px rgba(90,60,30,.14);
+  }
+  .penPig.top svg{animation:idleBob 2.4s ease-in-out infinite;}
+  .penPig.top:nth-child(2n) svg{animation-delay:.6s;}
+  .penPig.top:nth-child(3n) svg{animation-delay:1.2s;}
+  @keyframes idleBob{50%{transform:translateY(-2px);}}
+  .penPig.top:active{transform:scale(.93);}
+
+  .shake{animation:shake .35s;}
+  @keyframes shake{
+    20%{transform:translateX(-5px) rotate(-2deg);}
+    40%{transform:translateX(5px) rotate(2deg);}
+    60%{transform:translateX(-4px);}
+    80%{transform:translateX(4px);}
+  }
+  .flash{animation:flash .5s;}
+  @keyframes flash{50%{box-shadow:0 0 0 4px #E88CA0;}}
+
+  /* walking pig clone */
+  .walker{position:fixed;z-index:60;pointer-events:none;}
+  .walker .waddle{
+    width:100%;height:100%;transform-origin:50% 100%;
+    animation:waddle .24s ease-in-out infinite alternate;
+  }
+  @keyframes waddle{
+    from{transform:rotate(-6deg) translateY(0);}
+    to{transform:rotate(6deg) translateY(-3px);}
+  }
+  .walker svg{width:100%;height:100%;}
+  .walker.flip svg{transform:scaleX(-1);}
+
+  #toast{
+    position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    background:rgba(91,70,54,.92);color:#FFF6EA;font-size:14px;font-weight:600;
+    padding:8px 16px;border-radius:999px;opacity:0;transition:opacity .25s;
+    pointer-events:none;z-index:70;white-space:nowrap;
+  }
+  #toast.show{opacity:1;}
+
+  /* ---- overlays ---- */
+  .overlay{
+    position:fixed;inset:0;z-index:100;
+    background:rgba(255,244,227,.97);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:24px;gap:14px;
+  }
+  .overlay.hidden{display:none;}
+  .overlay h2{font-size:clamp(30px,9vw,44px);margin:0;line-height:1.15;}
+  .overlay p{margin:0;font-size:16px;color:var(--ink-soft);max-width:330px;line-height:1.5;}
+  .bigBtn{
+    min-height:54px;min-width:220px;border-radius:18px;padding:12px 24px;
+    background:var(--accent);color:#fff;font-size:18px;font-weight:800;
+    box-shadow:0 4px 0 #C96F84;
+  }
+  .bigBtn:active{transform:translateY(2px);box-shadow:0 2px 0 #C96F84;}
+  #confetti{position:fixed;inset:0;z-index:110;pointer-events:none;}
+  #confetti.hidden{display:none;}
+  .rules{text-align:left;font-size:14.5px;line-height:1.5;color:var(--ink);max-width:335px;margin:0;padding-left:20px;}
+  .rules li{margin-bottom:7px;}
+  .winPigs{font-size:44px;letter-spacing:6px;}
+  #winStars{font-size:38px;letter-spacing:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🐹 Marsupysäkki</h1>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button class="chip" id="muteBtn" aria-label="Äänet päälle/pois" style="min-width:42px;min-height:36px;padding:4px 8px;font-size:15px;">🔊</button>
+      <div class="chip" id="busCounter">Busseja jäljellä: 26</div>
+    </div>
+  </header>
+
+  <section class="scene" id="scene">
+    <div class="sun"></div>
+    <div class="cloud c1"></div><div class="cloud c2"></div>
+    <div class="hill h1"></div><div class="hill h2"></div>
+    <div class="kerb"></div>
+    <div class="roadLine"></div>
+    <svg class="bunting" viewBox="0 0 360 40" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 4 Q90 24 180 15 Q270 7 360 18" fill="none" stroke="#B98A5E" stroke-width="2"/>
+      <polygon points="7,6 23,8 15,22" fill="#7FAEE0"/>
+      <polygon points="52,13 68,15 60,29" fill="#F2A65E"/>
+      <polygon points="97,17 113,18 105,32" fill="#F3CE5E"/>
+      <polygon points="142,17 158,17 150,31" fill="#B492DC"/>
+      <polygon points="187,14 203,13 195,28" fill="#63C5B0"/>
+      <polygon points="232,11 248,10 240,25" fill="#E39CC3"/>
+      <polygon points="277,9 293,9 285,24" fill="#7FAEE0"/>
+      <polygon points="322,11 338,13 330,27" fill="#F3CE5E"/>
+    </svg>
+    <span class="sceneFlower" style="top:98px;left:26px;">🌼</span>
+    <span class="sceneFlower" style="top:104px;right:10px;">🌼</span>
+    <span class="sceneFlower" style="top:94px;right:34px;font-size:10px;">🌸</span>
+    <div class="stopPost">🚏</div>
+    <div class="persp">
+      <div class="busDrive" id="busDrive">
+        <div class="busShadow"></div>
+        <div class="busBounce">
+          <div class="bus3d" id="busEl">
+            <div class="face faceTop"></div>
+            <div class="face faceFront">
+              <div class="windshield">
+                <div class="busEye e1"></div>
+                <div class="busEye e2"></div>
+              </div>
+              <div class="busSmile"></div>
+              <div class="headlight"></div>
+            </div>
+            <div class="face faceSide">
+              <div class="busSign" id="busSign">●</div>
+              <div class="seats" id="seats">
+                <div class="seat"></div><div class="seat"></div><div class="seat"></div>
+              </div>
+              <div class="busDoor" id="busDoor"></div>
+              <div class="wheel wA"></div><div class="wheel wB"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="nextRow">
+    <div class="sectionLabel">Seuraavat:</div>
+    <div class="prevRow" id="prevRow"></div>
+    <button id="sendBtn">Lähetä bussi&nbsp;➜</button>
+  </div>
+
+  <section class="card benchCard">
+    <div class="sectionLabel">Odotuspenkki</div>
+    <div class="benchSlots" id="benchSlots"></div>
+    <div class="benchWood"></div>
+  </section>
+
+  <section class="card pen">
+    <div class="meadowDeco" aria-hidden="true">
+      <span style="left:1%;bottom:1%;">🌼</span>
+      <span style="right:1%;bottom:1%;font-size:12px;">🌸</span>
+      <span style="left:44%;bottom:0;font-size:11px;">🌿</span>
+    </div>
+    <div class="penHead">
+      <div class="sectionLabel" id="penLabel">Aitauksessa:</div>
+      <div class="gateHint">⬆ vain ylin rivi pääsee portille</div>
+    </div>
+    <div id="penGrid"></div>
+  </section>
+</div>
+
+<div id="toast"></div>
+<canvas id="confetti" class="hidden"></canvas>
+
+<div class="overlay" id="startOverlay">
+  <h2 style="font-size:30px;">🐹 Marsupysäkki 🚌</h2>
+  <ul class="rules">
+    <li>Marsut odottavat aitauksessa <b>kuudessa jonossa</b>. Vain kunkin jonon <b>ylintä marsua</b> voi napauttaa.</li>
+    <li>Napautettu marsu nousee <b>samanväriseen bussiin</b> — tai istuu odotuspenkille kaivautuaksesi syvemmälle. Penkillä on tilaa vain <b>neljälle</b>, ja penkin marsu nousee bussiin vasta kun napautat sitä.</li>
+    <li>Kruunupäinen <b>diivamarsu</b> ei suostu penkille — se tukkii jononsa, kunnes sen oma bussi saapuu.</li>
+    <li>Bussi lähtee, kun kyydissä on <b>3 marsua</b> — tai kun lähetät sen. Busseja on vain <b>26</b>!</li>
+  </ul>
+  <button class="bigBtn" id="startBtn">Aloita peli</button>
+</div>
+
+<div class="overlay hidden" id="winOverlay">
+  <div id="winStars">⭐⭐⭐</div>
+  <h2>Paljon onnea Raksu</h2>
+  <p id="winDetail"></p>
+  <button class="bigBtn" id="winRetryBtn">Pelaa uudelleen</button>
+</div>
+
+<div class="overlay hidden" id="loseOverlay">
+  <div class="winPigs">🐹💨</div>
+  <h2 style="font-size:clamp(24px,7vw,34px);">Parempi onni ensi vuonna</h2>
+  <p id="loseDetail"></p>
+  <button class="bigBtn" id="retryBtn">Yritä uudelleen</button>
+</div>
+
+<script>
+// ===LOGIC START===
+// Pure game logic: board generation, solution validator, reference bots.
+// No DOM access — this block is extracted and run headless by tests.
+
+const NCOLORS = 6;
+const CAP = 3;               // pigs per bus
+const BENCH_MAX = 4;         // bench slots
+const BUSES_TOTAL = 26;      // bus budget
+const COLS = 6;              // pen lanes
+const ROWS = 7;              // pen depth (6*7 = 42 pigs)
+const PIG_COUNT_PATTERN = [9, 9, 6, 6, 6, 6]; // 42 pigs, multiples of CAP
+const SPARE_TARGET = 3;      // the built-in solution leaves >= this many buses
+const DIVA_COUNT = 4;        // crowned pigs that refuse the bench
+
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle(arr, rng){
+  for(let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Board generation by reverse construction: we first fix the bus sequence,
+// then build the pen by inserting each core bus's pigs onto lane tops in
+// REVERSE bus order. Replaying those insertions backwards is therefore a
+// legal, bench-free winning line — every board is solvable by construction,
+// no solver needed. Column choices are adversarial (avoid same-color
+// stacking, spread each bus across lanes) so the line is hidden.
+function generateBoard(rng){
+  rng = rng || Math.random;
+  const pattern = shuffle(PIG_COUNT_PATTERN.slice(), rng);
+  const core = [];
+  pattern.forEach((cnt, c) => { for(let i = 0; i < cnt / CAP; i++) core.push(c); });
+  shuffle(core, rng); // 14 core buses
+
+  // Core buses live in positions [0 .. 26-1-SPARE_TARGET]; the rest are decoys.
+  const lastCore = BUSES_TOTAL - 1 - SPARE_TARGET;
+  const pool = [];
+  for(let i = 0; i < lastCore; i++) pool.push(i);
+  shuffle(pool, rng);
+  const positions = pool.slice(0, core.length - 1).concat([lastCore]).sort((a, b) => a - b);
+  const posSet = new Set(positions);
+  const buses = new Array(BUSES_TOTAL).fill(-1);
+  positions.forEach((p, i) => { buses[p] = core[i]; });
+
+  // Reverse construction of the pen (build[j]: bottom -> top).
+  const build = Array.from({length: COLS}, () => []);
+  const inserts = new Array(BUSES_TOTAL).fill(null);
+  for(let bi = BUSES_TOTAL - 1; bi >= 0; bi--){
+    if(!posSet.has(bi)) continue;
+    const c = buses[bi];
+    const cols = [];
+    const usedThisBus = new Set();
+    for(let k = 0; k < CAP; k++){
+      const cand = [];
+      for(let j = 0; j < COLS; j++){
+        if(build[j].length >= ROWS) continue;
+        const top = build[j][build[j].length - 1];
+        let score = 0;
+        if(top && top.c === c) score += 2;   // avoid same color adjacent
+        if(usedThisBus.has(j)) score += 1;   // spread a bus across lanes
+        cand.push({j, score});
+      }
+      cand.sort((a, b) => a.score - b.score);
+      const best = cand.filter(x => x.score === cand[0].score);
+      const pick = best[Math.floor(rng() * best.length)].j;
+      build[pick].push({c, diva: false});
+      usedThisBus.add(pick);
+      cols.push(pick);
+    }
+    inserts[bi] = cols;
+  }
+
+  // stacks[j][0] is the lane's TOP (gate side) pig.
+  const stacks = build.map(col => col.slice().reverse());
+
+  // Forward solution + per-pig removal times. Within one bus the pigs must
+  // leave in reverse insertion order (later-inserted sits higher).
+  const solution = [];
+  {
+    const depth = stacks.map(() => 0);
+    for(let bi = 0; bi < BUSES_TOTAL; bi++){
+      if(inserts[bi] === null){ solution.push('send'); continue; }
+      const cols = inserts[bi].slice().reverse();
+      solution.push(cols);
+      cols.forEach(j => { stacks[j][depth[j]].t = bi; depth[j]++; });
+    }
+  }
+
+  // Bait decoys: each non-core bus gets the color whose pigs sit at or near
+  // the lane tops when it arrives but whose own core bus is still far away.
+  // Committing pigs to a bait bus you cannot fill is the main trap — the
+  // pigs leave, and the real bus later departs short.
+  for(let i = 0; i < BUSES_TOTAL; i++){
+    if(buses[i] !== -1) continue;
+    const bait = new Array(NCOLORS).fill(0);
+    for(let j = 0; j < COLS; j++){
+      let d = 0;
+      while(d < stacks[j].length && stacks[j][d].t < i) d++;
+      for(let k = 0; k < 2 && d + k < stacks[j].length; k++){
+        const p = stacks[j][d + k];
+        if(p.t > i + 2) bait[p.c] += (k === 0 ? 2 : 1);
+      }
+    }
+    let best = [], bestScore = -1;
+    for(let c = 0; c < NCOLORS; c++){
+      if(bait[c] > bestScore){ bestScore = bait[c]; best = [c]; }
+      else if(bait[c] === bestScore) best.push(c);
+    }
+    buses[i] = best[Math.floor(rng() * best.length)];
+  }
+
+  // Divas: pick pigs with the longest "exposed but waiting" window — they
+  // block their lane the longest. The built-in line never benches anyone,
+  // so any diva choice keeps the board solvable. Max one diva per lane.
+  const candidates = [];
+  for(let j = 0; j < COLS; j++){
+    for(let d = 0; d < stacks[j].length; d++){
+      const tAbove = d === 0 ? -1 : stacks[j][d - 1].t;
+      candidates.push({j, d, window: stacks[j][d].t - tAbove});
+    }
+  }
+  candidates.sort((a, b) => b.window - a.window);
+  const divaCols = new Set();
+  let picked = 0;
+  for(const cand of candidates){
+    if(picked >= DIVA_COUNT) break;
+    if(divaCols.has(cand.j) || cand.window < 2) continue;
+    stacks[cand.j][cand.d].diva = true;
+    divaCols.add(cand.j);
+    picked++;
+  }
+
+  let id = 0;
+  stacks.forEach(col => col.forEach(p => { p.id = id++; }));
+  return {stacks, buses, solution};
+}
+
+// Machine-check that a board's built-in solution is a legal winning line.
+function validateSolution(board){
+  const colors = board.stacks.map(col => col.map(p => p.c));
+  const depth = colors.map(() => 0);
+  let lastUsed = -1;
+  for(let bi = 0; bi < board.buses.length; bi++){
+    const step = board.solution[bi];
+    if(step === 'send') continue;
+    if(step.length !== CAP) return {ok:false, why:'bus not full'};
+    for(const j of step){
+      if(depth[j] >= colors[j].length) return {ok:false, why:'lane empty'};
+      if(colors[j][depth[j]] !== board.buses[bi]) return {ok:false, why:'color mismatch'};
+      depth[j]++;
+    }
+    lastUsed = bi;
+  }
+  const cleared = depth.every((d, j) => d === colors[j].length);
+  return {ok: cleared, spare: BUSES_TOTAL - 1 - lastUsed, why: cleared ? '' : 'pigs left'};
+}
+
+// Reference bots. mode: 'random' | 'myopic' | 'dig'
+//  random — any legal move, uniformly.
+//  myopic — boards visible matches, otherwise benches a random top; no plan.
+//  dig    — like myopic but benches to uncover a current-bus pig when it can.
+function botPlay(board, rng, mode){
+  const cols = board.stacks.map(col => col.map(p => ({c: p.c, diva: p.diva})));
+  const depth = cols.map(() => 0);
+  const total = cols.reduce((a, c) => a + c.length, 0);
+  const bench = [];
+  let bi = 0, fill = 0, removed = 0, guard = 0;
+  while(guard++ < 5000){
+    if(removed === total && bench.length === 0)
+      return {win:true, used: bi + (fill > 0 ? 1 : 0)};
+    if(fill === CAP){ bi++; fill = 0; continue; }
+    if(bi >= BUSES_TOTAL) return {win:false, left: (total - removed) + bench.length};
+    const c = board.buses[bi];
+    const tops = [];
+    for(let j = 0; j < COLS; j++)
+      if(depth[j] < cols[j].length) tops.push({j, p: cols[j][depth[j]]});
+
+    if(mode === 'random'){
+      const moves = [];
+      const u = bench.indexOf(c);
+      if(u >= 0) moves.push({t:'u', i:u});
+      tops.forEach(({j, p}) => {
+        if(p.c === c) moves.push({t:'board', j});
+        else if(!p.diva && bench.length < BENCH_MAX) moves.push({t:'bench', j});
+      });
+      moves.push({t:'send'});
+      const mv = moves[Math.floor(rng() * moves.length)];
+      if(mv.t === 'u'){ bench.splice(mv.i, 1); fill++; }
+      else if(mv.t === 'board'){ depth[mv.j]++; removed++; fill++; }
+      else if(mv.t === 'bench'){ bench.push(cols[mv.j][depth[mv.j]].c); depth[mv.j]++; removed++; }
+      else { bi++; fill = 0; }
+      continue;
+    }
+
+    const u = bench.indexOf(c);
+    if(u >= 0){ bench.splice(u, 1); fill++; continue; }
+    const matches = tops.filter(x => x.p.c === c);
+    if(matches.length){
+      const j = matches[Math.floor(rng() * matches.length)].j;
+      depth[j]++; removed++; fill++; continue;
+    }
+    if(bench.length < BENCH_MAX){
+      let cand = tops.filter(x => !x.p.diva);
+      if(mode === 'dig'){
+        const digs = cand.filter(x =>
+          depth[x.j] + 1 < cols[x.j].length && cols[x.j][depth[x.j] + 1].c === c);
+        if(digs.length) cand = digs;
+      }
+      if(cand.length){
+        const pick = cand[Math.floor(rng() * cand.length)];
+        bench.push(cols[pick.j][depth[pick.j]].c);
+        depth[pick.j]++; removed++; continue;
+      }
+    }
+    bi++; fill = 0;
+  }
+  return {win:false, left: (total - removed) + bench.length};
+}
+// ===LOGIC END===
+
+/* ================= UI ================= */
+
+const PALETTE = [
+  {hex:'#7FAEE0', light:'#B3D0F0', dark:'#4F7FB5', badge:'●', name:'sininen'},
+  {hex:'#F2A65E', light:'#F8CB9B', dark:'#C97C35', badge:'▲', name:'oranssi'},
+  {hex:'#F3CE5E', light:'#F9E4A4', dark:'#A8841F', badge:'★', name:'keltainen'},
+  {hex:'#B492DC', light:'#D3BDEC', dark:'#8663AF', badge:'■', name:'violetti'},
+  {hex:'#63C5B0', light:'#9FDCCF', dark:'#2F8A75', badge:'♥', name:'turkoosi'},
+  {hex:'#E39CC3', light:'#F2C6DE', dark:'#AF6390', badge:'◆', name:'pinkki'},
+];
+
+function pigSVG(ci, badge, diva){
+  const col = PALETTE[ci];
+  const g = 'pg' + ci;
+  const BODY = 'M14 54 C14 40 23 26 41 21 C60 15 89 16 103 28 C113 37 116 53 110 65 C103 77 87 83 62 83 C43 83 25 80 18 69 C15 63 14 59 14 54 Z';
+  const b = badge === false ? '' :
+    `<circle cx="104" cy="18" r="12.5" fill="#fff" opacity="0.92"/>
+     <text x="104" y="23.5" text-anchor="middle" font-size="15" font-weight="bold" fill="${col.dark}">${col.badge}</text>`;
+  const crown = diva ?
+    `<path d="M33 16 L36 5 L42 11 L47 2 L52 11 L58 5 L61 16 Q47 20 33 16 Z"
+       fill="#F7C948" stroke="#C8961E" stroke-width="1.6" stroke-linejoin="round"/>
+     <circle cx="47" cy="13" r="1.7" fill="#E2606F"/>` : '';
+  return `<svg viewBox="0 0 120 92" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="${g}b" cx="36%" cy="22%" r="92%">
+        <stop offset="0%" stop-color="${col.light}"/>
+        <stop offset="52%" stop-color="${col.hex}"/>
+        <stop offset="100%" stop-color="${col.dark}"/>
+      </radialGradient>
+      <clipPath id="${g}c"><path d="${BODY}"/></clipPath>
+    </defs>
+    <ellipse cx="63" cy="86" rx="45" ry="4.5" fill="rgba(80,50,20,0.20)"/>
+    <ellipse cx="58" cy="20" rx="8" ry="5.5" fill="${col.dark}" opacity="0.85" transform="rotate(-18 58 20)"/>
+    <path d="${BODY}" fill="url(#${g}b)"/>
+    <g clip-path="url(#${g}c)">
+      <ellipse cx="94" cy="50" rx="24" ry="27" fill="${col.dark}" opacity="0.30"/>
+      <ellipse cx="28" cy="44" rx="14" ry="22" fill="#FFFFFF" opacity="0.85" transform="rotate(-14 28 44)"/>
+      <g stroke="${col.dark}" stroke-width="2" opacity="0.26" fill="none" stroke-linecap="round">
+        <path d="M60 24 q4 10 1 20"/>
+        <path d="M74 26 q5 12 1 24"/>
+        <path d="M87 29 q5 11 1 21"/>
+      </g>
+    </g>
+    <ellipse cx="45" cy="24" rx="10" ry="7" fill="${col.dark}" transform="rotate(-28 45 24)"/>
+    <ellipse cx="46" cy="25" rx="6" ry="4" fill="#E8A9B4" opacity="0.75" transform="rotate(-28 46 25)"/>
+    <path d="M26.5 37.5 q5 -3.5 10.5 -0.5" stroke="#2E211C" stroke-width="1.2" fill="none" opacity="0.45"/>
+    <ellipse cx="32" cy="41" rx="5" ry="5.4" fill="#2E211C"/>
+    <circle cx="33.8" cy="39" r="1.9" fill="#fff"/>
+    <circle cx="30.6" cy="43.4" r="1" fill="#fff" opacity="0.6"/>
+    <ellipse cx="16.5" cy="51.5" rx="3.2" ry="2.6" fill="#D98894"/>
+    <ellipse cx="26" cy="51" rx="4.4" ry="3" fill="#F29CA8" opacity="0.5"/>
+    <path d="M16 55 q1.5 4 6 4 q4.5 0 5.5 -3" stroke="#4A362C" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <g stroke="rgba(70,50,35,0.45)" stroke-width="1.1" fill="none">
+      <path d="M20 52 Q8 48 1 46"/>
+      <path d="M20 55 Q8 55 1 55"/>
+      <path d="M20 58 Q9 61 2 64"/>
+    </g>
+    <rect x="27" y="79" width="12" height="8" rx="3.5" fill="#E2A39B"/>
+    <path d="M31 87 v-3.5 M35 87 v-3.5" stroke="#B97B72" stroke-width="1.1"/>
+    <rect x="82" y="80" width="14" height="8" rx="3.5" fill="#E2A39B"/>
+    <path d="M86.5 88 v-3.5 M91 88 v-3.5" stroke="#B97B72" stroke-width="1.1"/>
+    ${crown}
+    ${b}
+  </svg>`;
+}
+
+let S = null;        // game state
+let busy = false;    // input lock during animations
+let INSTANT = false; // test hook: skip animations
+
+const $ = id => document.getElementById(id);
+const busDrive = $('busDrive'), busEl = $('busEl'), seatsEl = $('seats');
+const busSign = $('busSign'), busDoor = $('busDoor');
+const prevRow = $('prevRow'), sendBtn = $('sendBtn');
+const benchSlotsEl = $('benchSlots');
+const penGrid = $('penGrid'), penLabel = $('penLabel');
+const busCounter = $('busCounter'), toastEl = $('toast');
+
+function benchCount(){ return S.bench.filter(c => c !== null).length; }
+function pigsInPen(){ return S.stacks.reduce((a, col) => a + col.length, 0); }
+function allBoarded(){ return pigsInPen() === 0 && benchCount() === 0; }
+
+function newGame(){
+  const board = generateBoard(Math.random);
+  S = {
+    stacks: board.stacks,
+    bench: [null, null, null, null],
+    buses: board.buses,
+    solution: board.solution,
+    bi: 0,
+    fill: [],
+    over: false,
+  };
+  busy = false;
+  stopConfetti();
+  $('winOverlay').classList.add('hidden');
+  $('loseOverlay').classList.add('hidden');
+  busDrive.style.transition = 'none';
+  busDrive.style.setProperty('--dx', '0px');
+  render();
+}
+
+/* ---------- rendering ---------- */
+
+function render(){
+  renderBus();
+  renderPreview();
+  renderBench();
+  renderPen();
+  renderHUD();
+}
+
+function renderBus(){
+  const c = S.buses[Math.min(S.bi, BUSES_TOTAL - 1)];
+  const col = PALETTE[c];
+  busDrive.style.setProperty('--bc', col.hex);
+  busDrive.style.setProperty('--bcl', col.light);
+  busDrive.style.setProperty('--bcd', col.dark);
+  busSign.textContent = col.badge;
+  for(let i = 0; i < CAP; i++){
+    seatsEl.children[i].innerHTML = i < S.fill.length ? pigSVG(S.fill[i], false) : '';
+  }
+}
+
+function renderPreview(){
+  let html = '';
+  for(let i = 1; i <= 2; i++){
+    const idx = S.bi + i;
+    if(idx < BUSES_TOTAL){
+      const col = PALETTE[S.buses[idx]];
+      html += `<div class="mini" style="--bc:${col.hex};--bcl:${col.light};--bcd:${col.dark}">${col.badge}</div>`;
+    } else {
+      html += `<div class="mini empty">–</div>`;
+    }
+  }
+  prevRow.innerHTML = html;
+}
+
+function renderBench(){
+  let html = '';
+  for(let i = 0; i < BENCH_MAX; i++){
+    const c = S.bench[i];
+    html += `<button class="benchSlot${c !== null ? ' filled' : ''}" data-slot="${i}" aria-label="Penkkipaikka ${i+1}">${c !== null ? pigSVG(c) : ''}</button>`;
+  }
+  benchSlotsEl.innerHTML = html;
+}
+
+// FLIP: capture pen pig positions (by pig id) before a state change so the
+// lanes visibly shuffle forward instead of teleporting.
+let penRects = null;
+function capturePenRects(){
+  penRects = new Map();
+  document.querySelectorAll('#penGrid .penPig').forEach(el => {
+    penRects.set(el.dataset.key, el.getBoundingClientRect());
+  });
+}
+
+function renderPen(){
+  let html = '';
+  for(let j = 0; j < COLS; j++){
+    const col = S.stacks[j];
+    for(let d = 0; d < col.length; d++){
+      const p = col[d];
+      html += `<button class="penPig${d === 0 ? ' top' : ''}" data-col="${j}" data-key="${p.id}"
+        style="grid-column:${j + 1};grid-row:${d + 1}"
+        aria-label="Marsu">${pigSVG(p.c, true, p.diva)}</button>`;
+    }
+  }
+  penGrid.innerHTML = html;
+  const left = pigsInPen();
+  penLabel.textContent = left > 0 ? `Aitauksessa: ${left} marsua` : 'Aitaus on tyhjä!';
+
+  if(penRects && !INSTANT){
+    document.querySelectorAll('#penGrid .penPig').forEach(el => {
+      const old = penRects.get(el.dataset.key);
+      if(!old) return;
+      const now = el.getBoundingClientRect();
+      const dx = old.left - now.left, dy = old.top - now.top;
+      if(Math.abs(dx) + Math.abs(dy) < 4) return;
+      el.animate(
+        [{transform:`translate(${dx}px,${dy}px)`},{transform:'translate(0,0)'}],
+        {duration:260, easing:'ease-out'});
+    });
+  }
+  penRects = null;
+}
+
+function renderHUD(){
+  const left = Math.max(0, BUSES_TOTAL - S.bi);
+  busCounter.textContent = `Busseja jäljellä: ${left}`;
+  busCounter.classList.toggle('low', left <= 5 && !S.over);
+  // Pulse the send button when it's the only legal move.
+  const c = S.buses[Math.min(S.bi, BUSES_TOTAL - 1)];
+  let canBoard = false, canBench = false;
+  for(let j = 0; j < COLS; j++){
+    const p = S.stacks[j][0];
+    if(!p) continue;
+    if(p.c === c) canBoard = true;
+    else if(!p.diva && benchCount() < BENCH_MAX) canBench = true;
+  }
+  const canUnbench = S.bench.includes(c);
+  sendBtn.classList.toggle('pulse', !S.over && !canBoard && !canBench && !canUnbench);
+}
+
+/* ---------- sound (Web Audio, all synthesized — no files) ---------- */
+
+let AC = null;
+let muted = localStorage.getItem('marsuMute') === '1';
+
+function audio(){
+  try {
+    if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if(AC.state === 'suspended') AC.resume();
+    return AC;
+  } catch(e){ return null; }
+}
+
+function tone(ctx, {type='triangle', at=0, dur=0.2, from=440, to=null, peak=0.15, filter=null}){
+  const t = ctx.currentTime + at;
+  const o = ctx.createOscillator();
+  o.type = type;
+  o.frequency.setValueAtTime(from, t);
+  if(to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.8);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(peak, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  let node = o;
+  if(filter){
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = filter;
+    o.connect(f); node = f;
+  }
+  node.connect(g).connect(ctx.destination);
+  o.start(t); o.stop(t + dur + 0.03);
+}
+
+// Guinea pig "wheek wheek!"
+function sndSqueak(){
+  if(muted || INSTANT) return;
+  const ctx = audio();
+  if(!ctx) return;
+  const base = 780 + Math.random() * 340;
+  for(let i = 0; i < 2; i++){
+    const t = ctx.currentTime + i * 0.13;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(base, t);
+    o.frequency.exponentialRampToValueAtTime(base * 1.9, t + 0.05);
+    o.frequency.exponentialRampToValueAtTime(base * 0.85, t + 0.12);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.16, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    o.connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + 0.17);
+  }
+}
+
+// Toy putt-putt engine: revs up on departure, winds down on arrival.
+function sndEngine(mode){
+  if(muted || INSTANT) return;
+  const ctx = audio();
+  if(!ctx) return;
+  const t = ctx.currentTime;
+  const dur = mode === 'depart' ? 0.75 : 0.85;
+  const o = ctx.createOscillator(); o.type = 'sawtooth';
+  if(mode === 'depart'){
+    o.frequency.setValueAtTime(55, t);
+    o.frequency.exponentialRampToValueAtTime(145, t + dur * 0.8);
+  } else {
+    o.frequency.setValueAtTime(125, t);
+    o.frequency.exponentialRampToValueAtTime(48, t + dur * 0.9);
+  }
+  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 280; f.Q.value = 2;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.09, t + 0.07);
+  g.gain.setValueAtTime(0.09, t + dur - 0.16);
+  g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  const lfo = ctx.createOscillator(); lfo.type = 'square';
+  lfo.frequency.setValueAtTime(mode === 'depart' ? 11 : 15, t);
+  lfo.frequency.linearRampToValueAtTime(mode === 'depart' ? 19 : 8, t + dur);
+  const lg = ctx.createGain(); lg.gain.value = 0.035;
+  lfo.connect(lg).connect(g.gain);
+  o.connect(f).connect(g).connect(ctx.destination);
+  o.start(t); o.stop(t + dur + 0.03);
+  lfo.start(t); lfo.stop(t + dur + 0.03);
+}
+
+// Friendly beep-beep when a full bus pulls away.
+function sndHonk(){
+  if(muted || INSTANT) return;
+  const ctx = audio();
+  if(!ctx) return;
+  tone(ctx, {type:'square', at:0,    dur:0.09, from:466, peak:0.08});
+  tone(ctx, {type:'square', at:0.14, dur:0.11, from:466, peak:0.08});
+}
+
+function sndThud(){
+  if(muted || INSTANT) return;
+  const ctx = audio();
+  if(!ctx) return;
+  tone(ctx, {type:'square', dur:0.09, from:120, to:80, peak:0.07, filter:400});
+}
+
+function sndWin(){
+  if(muted || INSTANT) return;
+  const ctx = audio();
+  if(!ctx) return;
+  const seq = [[523.25,0],[659.25,.12],[783.99,.24],[1046.5,.36],[783.99,.56],[1046.5,.68],[1318.5,.8]];
+  seq.forEach(([n, at]) => tone(ctx, {type:'triangle', at, dur:0.3, from:n, peak:0.14}));
+  tone(ctx, {type:'sine', at:0.8, dur:0.9, from:523.25, peak:0.08});
+}
+
+function sndLose(){
+  if(muted || INSTANT) return;
+  const ctx = audio();
+  if(!ctx) return;
+  tone(ctx, {type:'sine', at:0,   dur:0.35, from:392, to:330, peak:0.11});
+  tone(ctx, {type:'sine', at:0.3, dur:0.55, from:330, to:247, peak:0.11});
+}
+
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.textContent = muted ? '🔇' : '🔊';
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  localStorage.setItem('marsuMute', muted ? '1' : '0');
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+  if(!muted) sndSqueak();
+});
+
+/* ---------- feedback ---------- */
+
+let toastTimer = null;
+function toast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1400);
+}
+
+function shake(el){
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+}
+
+// A pig clone waddle-walks from its old spot to the target element.
+function walk(html, fromRect, toEl, cb){
+  if(INSTANT){ cb && cb(); return; }
+  const r2 = toEl.getBoundingClientRect();
+  const s = Math.min(r2.width / fromRect.width, r2.height / fromRect.height);
+  const dx = r2.left - fromRect.left + (r2.width - fromRect.width * s) / 2;
+  const dy = r2.top - fromRect.top + (r2.height - fromRect.height * s) / 2;
+  const el = document.createElement('div');
+  el.className = 'walker' + (dx > 6 ? ' flip' : '');
+  el.innerHTML = `<div class="waddle">${html}</div>`;
+  el.style.left = fromRect.left + 'px';
+  el.style.top = fromRect.top + 'px';
+  el.style.width = fromRect.width + 'px';
+  el.style.height = fromRect.height + 'px';
+  document.body.appendChild(el);
+  toEl.classList.add('ghost');
+  const dist = Math.hypot(dx, dy);
+  const dur = Math.max(320, Math.min(760, dist * 1.9));
+  el.animate(
+    [{transform:'translate(0,0) scale(1)'},
+     {transform:`translate(${dx}px,${dy}px) scale(${s})`}],
+    {duration:dur, easing:'ease-in-out', fill:'forwards'});
+  setTimeout(() => { el.remove(); toEl.classList.remove('ghost'); cb && cb(); }, dur + 40);
+}
+
+/* ---------- bus driving ---------- */
+
+function busDepartAnim(cb){
+  if(INSTANT){ cb && cb(); return; }
+  sndEngine('depart');
+  busDrive.classList.add('rolling');
+  busDrive.style.transition = 'transform .75s cubic-bezier(.55,.05,.9,.45)';
+  busDrive.style.setProperty('--dx', '580px');
+  setTimeout(() => { busDrive.classList.remove('rolling'); cb && cb(); }, 780);
+}
+
+function busArriveAnim(cb){
+  if(INSTANT){ cb && cb(); return; }
+  sndEngine('arrive');
+  busDrive.style.transition = 'none';
+  busDrive.style.setProperty('--dx', '-580px');
+  busDrive.classList.add('rolling');
+  setTimeout(() => {
+    busDrive.style.transition = 'transform .8s cubic-bezier(.2,.85,.35,1)';
+    busDrive.style.setProperty('--dx', '0px');
+  }, 30);
+  setTimeout(() => { busDrive.classList.remove('rolling'); cb && cb(); }, 860);
+}
+
+/* ---------- moves (shared by taps and the test driver) ---------- */
+
+function mvBoardTop(j){
+  const cellEl = penGrid.querySelector(`.penPig[data-col="${j}"].top`);
+  const fromR = cellEl ? cellEl.getBoundingClientRect() : penGrid.getBoundingClientRect();
+  capturePenRects();
+  const p = S.stacks[j].shift();
+  S.fill.push(p.c);
+  busy = true;
+  render();
+  const seatEl = seatsEl.children[S.fill.length - 1];
+  walk(pigSVG(p.c, false, p.diva), fromR, seatEl, () => {
+    if(S.fill.length === CAP || allBoarded()) departBus();
+    else busy = false;
+  });
+}
+
+function mvBenchTop(j){
+  const cellEl = penGrid.querySelector(`.penPig[data-col="${j}"].top`);
+  const fromR = cellEl ? cellEl.getBoundingClientRect() : penGrid.getBoundingClientRect();
+  capturePenRects();
+  const p = S.stacks[j].shift();
+  const slot = S.bench.indexOf(null);
+  S.bench[slot] = p.c;
+  busy = true;
+  render();
+  walk(pigSVG(p.c), fromR, benchSlotsEl.children[slot], () => { busy = false; });
+}
+
+function mvUnbench(slot){
+  if(slot === undefined) slot = S.bench.indexOf(S.buses[S.bi]);
+  const c = S.bench[slot];
+  const fromR = benchSlotsEl.children[slot].getBoundingClientRect();
+  S.bench[slot] = null;
+  S.fill.push(c);
+  busy = true;
+  render();
+  const seatEl = seatsEl.children[S.fill.length - 1];
+  walk(pigSVG(c, false), fromR, seatEl, () => {
+    if(S.fill.length === CAP || allBoarded()) departBus();
+    else busy = false;
+  });
+}
+
+function mvSend(){
+  departBus();
+}
+
+function departBus(){
+  busy = true;
+  if(S.fill.length === CAP) sndHonk();
+  const finish = () => {
+    S.bi++; S.fill = [];
+    if(allBoarded()){ showWin(); return; }
+    if(S.bi >= BUSES_TOTAL){ showLose(); return; }
+    render();
+    busArriveAnim(() => { busy = false; });
+  };
+  busDepartAnim(finish);
+}
+
+/* ---------- tap handlers ---------- */
+
+penGrid.addEventListener('click', e => {
+  const btn = e.target.closest('.penPig');
+  if(!btn || busy || !S || S.over) return;
+  const j = +btn.dataset.col;
+  if(!btn.classList.contains('top')){
+    shake(btn);
+    sndThud();
+    toast('Tämä marsu on jonon keskellä!');
+    return;
+  }
+  const p = S.stacks[j][0];
+  if(!p) return;
+  if(p.c === S.buses[S.bi] && S.fill.length < CAP){
+    sndSqueak();
+    mvBoardTop(j);
+  } else if(p.diva){
+    shake(btn);
+    sndThud();
+    toast('Diiva nousee vain suoraan omaan bussiinsa! 👑');
+  } else if(benchCount() < BENCH_MAX){
+    sndSqueak();
+    mvBenchTop(j);
+  } else {
+    shake(btn);
+    sndThud();
+    benchSlotsEl.parentElement.classList.remove('flash');
+    void benchSlotsEl.offsetWidth;
+    benchSlotsEl.parentElement.classList.add('flash');
+    toast('Penkki on täynnä!');
+  }
+});
+
+benchSlotsEl.addEventListener('click', e => {
+  const btn = e.target.closest('.benchSlot');
+  if(!btn || busy || !S || S.over) return;
+  const slot = +btn.dataset.slot;
+  const c = S.bench[slot];
+  if(c === null) return;
+  if(c === S.buses[S.bi] && S.fill.length < CAP){
+    sndSqueak();
+    mvUnbench(slot);
+  } else {
+    shake(btn);
+    sndThud();
+    toast('Odota oikean väristä bussia!');
+  }
+});
+
+sendBtn.addEventListener('click', () => {
+  if(busy || !S || S.over) return;
+  mvSend();
+});
+
+$('startBtn').addEventListener('click', () => {
+  try { audio(); } catch(e){} // unlock audio on iOS with the first tap
+  $('startOverlay').classList.add('hidden');
+});
+$('retryBtn').addEventListener('click', newGame);
+$('winRetryBtn').addEventListener('click', newGame);
+
+/* ---------- win / lose ---------- */
+
+function showWin(){
+  S.over = true;
+  render();
+  const left = BUSES_TOTAL - S.bi;
+  const stars = left >= 3 ? 3 : left >= 1 ? 2 : 1;
+  $('winStars').textContent = '⭐'.repeat(stars);
+  $('winDetail').textContent = `Kaikki marsut pääsivät kyytiin — ${left} bussia säästyi! 🎉`;
+  $('winOverlay').classList.remove('hidden');
+  sndWin();
+  startConfetti();
+}
+
+function showLose(){
+  S.over = true;
+  render();
+  const left = pigsInPen() + benchCount();
+  $('loseDetail').textContent = `${left} marsua jäi aitaukseen odottamaan.`;
+  $('loseOverlay').classList.remove('hidden');
+  sndLose();
+}
+
+/* ---------- confetti ---------- */
+
+let confettiRAF = null;
+let confettiTimer = null;
+function startConfetti(){
+  const cv = $('confetti');
+  cv.classList.remove('hidden');
+  cv.width = innerWidth; cv.height = innerHeight;
+  const ctx = cv.getContext('2d');
+  const cols = PALETTE.map(p => p.hex).concat(['#FFFFFF', '#F29CA8', '#E88CA0']);
+  const P = [];
+  for(let i = 0; i < 150; i++){
+    P.push({
+      x: Math.random() * cv.width,
+      y: (Math.random() * 1.6 - 1) * cv.height,
+      w: 6 + Math.random() * 6,
+      h: 8 + Math.random() * 8,
+      c: cols[i % cols.length],
+      vy: 2 + Math.random() * 3,
+      vx: -0.8 + Math.random() * 1.6,
+      r: Math.random() * Math.PI,
+      vr: -0.1 + Math.random() * 0.2,
+    });
+  }
+  cancelAnimationFrame(confettiRAF);
+  clearTimeout(confettiTimer);
+  function step(){
+    clearTimeout(confettiTimer);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for(const p of P){
+      p.y += p.vy; p.x += p.vx + Math.sin(p.y * 0.02) * 0.6; p.r += p.vr;
+      if(p.y > cv.height + 20){ p.y = -20; p.x = Math.random() * cv.width; }
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+    confettiRAF = requestAnimationFrame(step);
+    confettiTimer = setTimeout(() => { cancelAnimationFrame(confettiRAF); step(); }, 45);
+  }
+  step();
+}
+function stopConfetti(){
+  cancelAnimationFrame(confettiRAF);
+  clearTimeout(confettiTimer);
+  $('confetti').classList.add('hidden');
+}
+
+/* ---------- test hooks (used by automated verification) ---------- */
+
+window.__test = {
+  state: () => S,
+  newGame,
+  setInstant: v => { INSTANT = v; },
+  validate: validateSolution,
+  bot: botPlay,
+  // Replay the built-in solution from a FRESH board to the win screen.
+  autoWin(){
+    if(S.bi !== 0 || S.fill.length || benchCount() !== 0 || pigsInPen() !== COLS * ROWS)
+      newGame();
+    INSTANT = true;
+    for(const step of S.solution){
+      if(S.over) break;
+      if(step === 'send'){ mvSend(); continue; }
+      for(const j of step){ if(!S.over) mvBoardTop(j); }
+    }
+    INSTANT = false;
+    return S.over && !$('winOverlay').classList.contains('hidden') ? 'WIN' : 'INCOMPLETE';
+  },
+  autoLose(){
+    INSTANT = true;
+    let guard = 0;
+    while(!S.over && guard++ < 30) mvSend();
+    INSTANT = false;
+    return !$('loseOverlay').classList.contains('hidden') ? 'LOSE' : 'INCOMPLETE';
+  },
+};
+
+newGame();
+</script>
+</body>
+</html>
